@@ -22,7 +22,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p backups
-          out="backups/$(date -u +%F).json"
+          out="backups/telemetry.json"
           curl -fsS "$SOURCE_URL" -o "$out"
           # Fail loudly instead of committing a truncated/empty snapshot.
           python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$out"
@@ -37,5 +37,5 @@ jobs:
             echo "No changes (snapshot identical to last commit or already exists) — skipping commit."
             exit 0
           fi
-          git commit -m "backup: $(date -u +%F) telemetry snapshot"
+          git commit -m "backup: telemetry snapshot $(date -u +%F)"
           git push
