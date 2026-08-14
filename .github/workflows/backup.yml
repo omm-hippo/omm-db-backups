@@ -1,0 +1,41 @@
+name: Daily DB backup
+
+on:
+  schedule:
+    # 03:30 UTC daily — offset from omm/train.yml's 03:00 UTC run so the two
+    # workflows never race for the same telemetry data mid-write.
+    - cron: "30 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch full RTDB snapshot
+        env:
+          SOURCE_URL: "https://localfit-8ab57-default-rtdb.firebaseio.com/telemetry.json"
+        run: |
+          set -euo pipefail
+          mkdir -p backups
+          out="backups/$(date -u +%F).json"
+          curl -fsS "$SOURCE_URL" -o "$out"
+          # Fail loudly instead of committing a truncated/empty snapshot.
+          python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$out"
+
+      - name: Commit snapshot
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add backups/
+          if git diff --cached --quiet; then
+            echo "No changes (snapshot identical to last commit or already exists) — skipping commit."
+            exit 0
+          fi
+          git commit -m "backup: $(date -u +%F) telemetry snapshot"
+          git push
